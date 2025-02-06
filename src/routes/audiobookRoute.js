@@ -3,26 +3,26 @@ import {
   addRating,
   editRating,
   removeRating,
-} from "../controllers/audiobookController.js";
-import { checkUserOrAuthorToken } from "../middlewares/checkUserOrAuthor.js";
-import {
   deleteAudiobook,
   getAudiobooks,
   updateAudiobook,
   getAudiobookById,
   getAudiobooksByCategory,
   searchAudiobooks,
-} from "../controllers/audiobookController.js";
+  uploadAudiobook,
+  getAudiobookCoverImage, // <-- ADD THIS IMPORT for getAudiobookCoverImage
+} from "../controllers/audiobookController.js"; // Make sure the path to your controller is correct
+import { checkUserOrAuthorToken } from "../middlewares/checkUserOrAuthor.js";
 import {
   checkAuthorToken,
   checkUserToken,
 } from "../middlewares/authMiddleware.js";
-
 import { upload } from "../controllers/gridfs.js";
-import { uploadAudiobook } from "../controllers/audiobookController.js";
+
 const router = express.Router();
 
 router.get("/getbooks", checkAuthorToken, getAudiobooks); // Only fetch books, no upload
+router.get("/cover-image/:filename", getAudiobookCoverImage); // <-- ADD THIS NEW ROUTE to serve cover images from GridFS
 router.post(
   "/uploadaudiobook",
   checkAuthorToken, // Add the middleware to check token before the controller
