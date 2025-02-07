@@ -10,9 +10,8 @@ import {
   getAudiobooksByCategory,
   searchAudiobooks,
   uploadAudiobook,
-  getAudiobookCoverImage, // <-- ADD THIS IMPORT for getAudiobookCoverImage
-} from "../controllers/audiobookController.js"; // Make sure the path to your controller is correct
-import { checkUserOrAuthorToken } from "../middlewares/checkUserOrAuthor.js";
+  getAudiobookCoverImage,
+} from "../controllers/audiobookController.js";
 import {
   checkAuthorToken,
   checkUserToken,
@@ -21,29 +20,34 @@ import { upload } from "../controllers/gridfs.js";
 
 const router = express.Router();
 
-router.get("/getbooks", checkAuthorToken, getAudiobooks); // Only fetch books, no upload
-router.get("/cover-image/:filename", getAudiobookCoverImage); // <-- ADD THIS NEW ROUTE to serve cover images from GridFS
-router.post(
-  "/uploadaudiobook",
-  checkAuthorToken, // Add the middleware to check token before the controller
-  upload, // File upload middleware
-  uploadAudiobook // Controller function
-);
-router.delete("/deleteaudiobooks/:id", checkAuthorToken, deleteAudiobook);
-router.put(
-  "/updateaudiobook/:id",
-  checkAuthorToken, // Middleware to verify the author
-  upload, // File upload middleware (if updating files)
-  updateAudiobook // Controller function to update audiobook details
-);
-router.get("/getaudiobook/:id", checkAuthorToken, getAudiobookById);
+// Public routes (no authentication required)
+router.get("/getbooks", getAudiobooks);
+router.get("/cover-image/:filename", getAudiobookCoverImage);
 router.get("/search", searchAudiobooks);
 router.get("/category/:category", getAudiobooksByCategory);
-router.post("/:id/review", checkUserOrAuthorToken, addRating);
-// Route to remove a rating
-router.delete("/:id/review", checkUserOrAuthorToken, removeRating);
 
-// Route to edit a rating
-router.put("/:id/review", checkUserOrAuthorToken, editRating);
+// Author-only routes
+router.post("/uploadaudiobook", checkAuthorToken, upload, uploadAudiobook);
+router.delete("/:id/delete", checkAuthorToken, deleteAudiobook); // Changed route
+router.put("/:id/update", checkAuthorToken, upload, updateAudiobook); // Changed route
+router.get("/:id/get", checkAuthorToken, getAudiobookById); // Changed route
+
+// User rating route
+router.post("/:id/review/user", checkUserToken, addRating);
+
+// Author rating route
+router.post("/:id/review/author", checkAuthorToken, addRating);
+
+// User remove a rating
+router.delete("/:id/review/user", checkUserToken, removeRating);
+
+// Author remove a rating
+router.delete("/:id/review/author", checkAuthorToken, removeRating);
+
+// User Route to edit a rating
+router.put("/:id/review/user", checkUserToken, editRating);
+
+// Author Route to edit a rating
+router.put("/:id/review/author", checkAuthorToken, editRating);
 
 export default router;

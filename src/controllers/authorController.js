@@ -286,8 +286,12 @@ const loginAuthor = async (req, res, next) => {
     }
 
     // generate the token
+    // generate the token
     const token = jwt.sign(
-      { authorId: author._id, email },
+      {
+        authorId: author._id, // Include authorId in the payload
+        email: email, // Use the email variable from the request
+      },
       process.env.JWT_SECRET,
       {
         expiresIn: 2592000,

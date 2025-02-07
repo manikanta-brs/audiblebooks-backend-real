@@ -183,32 +183,32 @@ const uploadAudiobook = asyncHandler(async (req, res, next) => {
 const getAudiobooks = asyncHandler(async (req, res) => {
   try {
     // Extract token from headers
-    let token;
-    const authorizationHeader = req.headers.authorization;
+    // let token;
+    // const authorizationHeader = req.headers.authorization;
 
-    if (!authorizationHeader || !authorizationHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Token is required" });
-    }
+    // if (!authorizationHeader || !authorizationHeader.startsWith("Bearer ")) {
+    //   return res.status(401).json({ error: "Token is required" });
+    // }
 
-    token = authorizationHeader.split(" ")[1];
+    // token = authorizationHeader.split(" ")[1];
 
-    try {
-      const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+    // try {
+    //   const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
 
-      // Check if the author exists
-      const author = await Author.findById(decodedToken.authorId).select(
-        "-password"
-      );
-      if (!author) {
-        return res.status(404).json({ error: "Author not found" });
-      }
+    //   // Check if the author exists
+    //   const author = await Author.findById(decodedToken.authorId).select(
+    //     "-password"
+    //   );
+    //   if (!author) {
+    //     return res.status(404).json({ error: "Author not found" });
+    //   }
 
-      req.author = author;
-    } catch (error) {
-      return res.status(401).json({ error: "Not authorized, invalid token" });
-    }
+    //   req.author = author;
+    // } catch (error) {
+    //   return res.status(401).json({ error: "Not authorized, invalid token" });
+    // }
 
-    console.log(req.author.first_name); // Logging author name for debugging
+    // console.log(req.author.first_name); // Logging author name for debugging
 
     const audiobooks = await Audiobook.find();
 
@@ -615,22 +615,72 @@ const getAudiobooksByCategory = asyncHandler(async (req, res) => {
   }
 });
 
+// const addRating = async (req, res, next) => {
+//   const { audiobookId, rating, review, ratingSource, ratingDate } = req.body; // New fields
+//   console.log(req.body);
+//   console.log("req.user:", req.user);
+//   console.log("req.author:", req.author);
+//   const userId = req.user ? req.user._id : req.author ? req.author._id : null;
+//   if (!userId) {
+//     return res
+//       .status(401)
+//       .json({ message: "Not authorized, user or author required" });
+//   }
+
+//   // Here you can proceed to add the rating to the audiobook
+//   try {
+//     const audiobook = await Audiobook.findById(audiobookId);
+//     if (!audiobook) {
+//       return res.status(404).json({ message: "Audiobook not found" });
+//     }
+
+//     // Check if the user/author has already rated this audiobook
+//     const existingRating = audiobook.ratings.find(
+//       (rating) =>
+//         rating.userId && rating.userId.toString() === userId.toString()
+//     );
+//     if (existingRating) {
+//       return res
+//         .status(400)
+//         .json({ message: "You have already rated this audiobook" });
+//     }
+
+//     // Add the new rating to the array, including new fields
+//     audiobook.ratings.push({
+//       userId,
+//       rating,
+//       review,
+//       ratingSource, // New field
+//       ratingDate, // New field
+//     });
+
+//     // Call the method to update the average rating, total ratings, and total count
+//     await audiobook.calculateAverageRating();
+
+//     // Save the updated audiobook
+//     await audiobook.save();
+
+//     return res.status(200).json({ message: "Rating added successfully" });
+//   } catch (error) {
+//     console.error("Error adding rating:", error);
+//     return res.status(500).json({ message: "Internal server error" });
+//   }
+// };
+// audiobookController.js
 const addRating = async (req, res, next) => {
-  const { audiobookId, rating, review, ratingSource, ratingDate } = req.body; // New fields
-  console.log(req.body);
-  console.log(req.user); // Check for user
-  console.log(req.author); // Check for author
+  const { audiobookId, rating, review, ratingSource, ratingDate } = req.body;
 
-  // Check if the user is logged in as a user or author
-  const userId = req.user ? req.user._id : req.author ? req.author._id : null;
-
-  if (!userId) {
+  let userId;
+  if (req.user) {
+    userId = req.user._id;
+  } else if (req.author) {
+    userId = req.author._id;
+  } else {
     return res
       .status(401)
       .json({ message: "Not authorized, user or author required" });
   }
 
-  // Here you can proceed to add the rating to the audiobook
   try {
     const audiobook = await Audiobook.findById(audiobookId);
     if (!audiobook) {
@@ -639,7 +689,8 @@ const addRating = async (req, res, next) => {
 
     // Check if the user/author has already rated this audiobook
     const existingRating = audiobook.ratings.find(
-      (rating) => rating.userId.toString() === userId.toString()
+      (rating) =>
+        rating.userId && rating.userId.toString() === userId.toString()
     );
     if (existingRating) {
       return res
@@ -647,19 +698,15 @@ const addRating = async (req, res, next) => {
         .json({ message: "You have already rated this audiobook" });
     }
 
-    // Add the new rating to the array, including new fields
     audiobook.ratings.push({
       userId,
       rating,
       review,
-      ratingSource, // New field
-      ratingDate, // New field
+      ratingSource,
+      ratingDate,
     });
 
-    // Call the method to update the average rating, total ratings, and total count
     await audiobook.calculateAverageRating();
-
-    // Save the updated audiobook
     await audiobook.save();
 
     return res.status(200).json({ message: "Rating added successfully" });
@@ -668,7 +715,6 @@ const addRating = async (req, res, next) => {
     return res.status(500).json({ message: "Internal server error" });
   }
 };
-
 const removeRating = async (req, res, next) => {
   const { audiobookId } = req.body;
   const userId = req.user ? req.user._id : req.author ? req.author._id : null;
@@ -687,7 +733,8 @@ const removeRating = async (req, res, next) => {
 
     // Find the rating to remove
     const ratingIndex = audiobook.ratings.findIndex(
-      (rating) => rating.userId.toString() === userId.toString()
+      (rating) =>
+        rating.userId && rating.userId.toString() === userId.toString() //  <--- ADDED CHECK
     );
     if (ratingIndex === -1) {
       return res

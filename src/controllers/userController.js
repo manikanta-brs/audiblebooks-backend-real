@@ -134,6 +134,8 @@ const getDevice = (req, res) => {
 //   }
 // };
 const createUser = async (req, res, next) => {
+  console.log("JWT_SECRET in createUser:", process.env.JWT_SECRET); // Add this line
+
   const { first_name, last_name, email, password } = req.body;
   const avatarImages = [
     "https://cdn-icons-png.flaticon.com/512/4322/4322991.png",
