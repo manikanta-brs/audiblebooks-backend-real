@@ -27,7 +27,10 @@ import mongoose from "mongoose";
 // );
 const userSchema = mongoose.Schema(
   {
-    avatar: { type: String, default: "" }, // Fix typo: `avathar` -> `avatar`
+    avatar: {
+      type: String,
+      default: "https://cdn-icons-png.flaticon.com/512/1326/1326405.png",
+    }, // Fix typo: `avathar` -> `avatar`
     first_name: { type: String, default: null },
     last_name: { type: String, default: null },
     email: { type: String, unique: true },

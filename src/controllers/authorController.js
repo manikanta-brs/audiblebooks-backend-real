@@ -174,79 +174,6 @@ const verifyAuthorEmail = async (req, res, next) => {
   }
 };
 
-// const verifyAuthorEmail = async (req, res, next) => {
-//   try {
-//     const author = await Author.findOne({
-//       verify_token: req.params.verifyToken,
-//     });
-
-//     // Check if the request expects JSON (like from Postman or API calls)
-//     const wantsJson =
-//       req.headers.accept && req.headers.accept.includes("application/json");
-
-//     if (!author) {
-//       const response = {
-//         success: false,
-//         message: "Invalid verification token.",
-//       };
-
-//       return wantsJson
-//         ? res.status(400).json(response)
-//         : res.render("email_verified", response);
-//     }
-
-//     if (author.verify_token_expires <= Date.now()) {
-//       if (!author.verified) {
-//         await author.deleteOne();
-//       }
-//       const response = {
-//         success: false,
-//         message: "Verification token has expired.",
-//       };
-
-//       return wantsJson
-//         ? res.status(400).json(response)
-//         : res.render("email_verified", response);
-//     }
-
-//     if (author.verified) {
-//       const response = {
-//         success: true,
-//         message: "Email already verified. Please login to continue.",
-//       };
-
-//       return wantsJson
-//         ? res.status(200).json(response)
-//         : res.render("email_verified", response);
-//     }
-
-//     // Verify the author
-//     author.verified = true;
-//     author.isAuthor = true;
-//     author.verify_token = undefined;
-//     author.verify_token_expires = undefined;
-//     await author.save();
-
-//     const response = {
-//       success: true,
-//       message: "Email verified successfully. Please login to continue.",
-//     };
-
-//     return wantsJson
-//       ? res.status(200).json(response)
-//       : res.render("email_verified", response);
-//   } catch (error) {
-//     if (req.headers.accept && req.headers.accept.includes("application/json")) {
-//       return res.status(500).json({
-//         success: false,
-//         message: error.message,
-//       });
-//     }
-//     next(error);
-//   }
-// };
-
-// Login Author
 const loginAuthor = async (req, res, next) => {
   const { email, password } = req.body;
   if (!email || !password) {
@@ -278,14 +205,13 @@ const loginAuthor = async (req, res, next) => {
 
     // check for password match
     const passwordMatched = await bcrypt.compare(password, author.password);
-    console.log(passwordMatched);
+
     if (!passwordMatched) {
       const err = new Error("Invalid email or password");
       err.statusCode = 400;
       return next(err);
     }
 
-    // generate the token
     // generate the token
     const token = jwt.sign(
       {
@@ -302,11 +228,75 @@ const loginAuthor = async (req, res, next) => {
 
     // our token exp time
     const expiresIn = 2592000;
-    res.status(200).json({ token, expiresIn });
+    res.status(200).json({
+      token,
+      avatar: author.avatar, // Include the avatar URL in the response
+      expiresIn,
+    });
   } catch (error) {
     return next(error);
   }
 };
+// const loginAuthor = async (req, res, next) => {
+//   const { email, password } = req.body;
+//   if (!email || !password) {
+//     const err = new Error("Email & Password are required");
+//     err.statusCode = 400;
+//     return next(err);
+//   }
+//   // check for valid email adress
+//   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+//   if (!emailRegex.test(email)) {
+//     res.status(400);
+//     const err = new Error("Invalid email address");
+//     return next(err);
+//   }
+//   try {
+//     const author = await Author.findOne({ email });
+//     if (!author) {
+//       const err = new Error("Author not found");
+//       err.statusCode = 400;
+//       return next(err);
+//     }
+//     if (!author.verified) {
+//       const err = new Error(
+//         "Your account verification is pending. Please verify your email to continue"
+//       );
+//       err.statusCode = 409;
+//       return next(err);
+//     }
+
+//     // check for password match
+//     const passwordMatched = await bcrypt.compare(password, author.password);
+//     console.log(passwordMatched);
+//     if (!passwordMatched) {
+//       const err = new Error("Invalid email or password");
+//       err.statusCode = 400;
+//       return next(err);
+//     }
+
+//     // generate the token
+//     // generate the token
+//     const token = jwt.sign(
+//       {
+//         authorId: author._id, // Include authorId in the payload
+//         email: email, // Use the email variable from the request
+//       },
+//       process.env.JWT_SECRET,
+//       {
+//         expiresIn: 2592000,
+//       }
+//     );
+//     author.token = token;
+//     await author.save();
+
+//     // our token exp time
+//     const expiresIn = 2592000;
+//     res.status(200).json({ token, expiresIn });
+//   } catch (error) {
+//     return next(error);
+//   }
+// };
 
 // get author  profile
 const getAuthorProfile = async (req, res, next) => {

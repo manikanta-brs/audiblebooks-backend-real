@@ -34,7 +34,10 @@ import mongoose from "mongoose";
 
 const authorSchema = mongoose.Schema(
   {
-    avatar: { type: String, default: "" }, // Add this line
+    avatar: {
+      type: String,
+      default: "https://cdn-icons-png.flaticon.com/512/1326/1326405.png",
+    }, // Add this line
     first_name: { type: String, default: null },
     last_name: { type: String, default: null },
     email: { type: String, unique: true },

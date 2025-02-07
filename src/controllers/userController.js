@@ -20,9 +20,20 @@ const getDevice = (req, res) => {
   res.send(req.useragent.source);
 };
 
-// create a new user
 // const createUser = async (req, res, next) => {
+//   console.log("JWT_SECRET in createUser:", process.env.JWT_SECRET); // Add this line
+
 //   const { first_name, last_name, email, password } = req.body;
+//   const avatarImages = [
+//     "https://cdn-icons-png.flaticon.com/512/4322/4322991.png",
+//     "https://cdn-icons-png.flaticon.com/512/1326/1326377.png",
+//     "https://cdn-icons-png.flaticon.com/512/2632/2632839.png",
+//     "https://cdn-icons-png.flaticon.com/512/3940/3940403.png",
+//     "https://cdn-icons-png.flaticon.com/512/3940/3940417.png",
+//     "https://cdn-icons-png.flaticon.com/512/1326/1326405.png",
+//     "https://cdn-icons-png.flaticon.com/512/1326/1326390.png",
+//     "https://cdn-icons-png.flaticon.com/512/1760/1760998.png",
+//   ];
 //   try {
 //     if (!first_name || !last_name || !email || !password) {
 //       const err = new Error(
@@ -32,111 +43,75 @@ const getDevice = (req, res) => {
 //       return next(err);
 //     }
 
-//     // check for valid email adress
+//     // Check for valid email address
 //     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 //     if (!emailRegex.test(email)) {
-//       res.status(400);
 //       const err = new Error("Invalid email address");
+//       res.status(400);
 //       return next(err);
 //     }
 
-//     // check for existing user''
+//     // Check for existing user
 //     const userExists = await User.findOne({ email });
 //     if (userExists) {
-//       res.status(400);
+//       res.status(409);
 //       const err = new Error(
-//         "User with this email already exists. Please use a differnt email address"
+//         "User with this email already exists. Please use a different email address"
 //       );
 //       err.statusCode = 409;
 //       return next(err);
 //     }
 
-//     // hash password
+//     // Hash password
 //     const hashedPassword = await bcrypt.hash(password, 10);
 
-//     // generate token
+//     // Generate token
 //     const token = jwt.sign({ email }, process.env.JWT_SECRET, {
 //       expiresIn: "2h",
 //     });
 
-//     if (req.useragent.isMobile) {
-//       try {
-//         const verificationEmailResponse = await sendEmailVerificationLink(
-//           email,
-//           token,
-//           first_name
-//         );
+//     // Send verification email
+//     const verificationEmailResponse = await sendEmailVerificationLink(
+//       email,
+//       token,
+//       first_name,
+//       "users"
+//     );
 
-//         // send mail - handle err
-//         if (verificationEmailResponse.error) {
-//           const err = new Error(
-//             "Failed to send verification email, please try again later"
-//           );
-//           err.statusCode = 500;
-//           return next(err);
-//         }
-
-//         // save to DB
-//         const user = await User.create({
-//           first_name,
-//           last_name,
-//           email,
-//           password: hashedPassword,
-//           verify_token: token,
-//           verify_token_expires: Date.now() + 7200000,
-//         });
-//         // send mail success
-//         res.status(201).json({
-//           message:
-//             "Registered successfully. Please check your mail to verify the account",
-//         });
-//       } catch (error) {
-//         return next(error);
-//       }
-//     } else {
-//       const generatedCode = Math.floor(1000 + Math.random() * 9000);
-
-//       const verificationEmailResponse = await sendVerificationCode(
-//         first_name,
-//         email,
-//         generatedCode
+//     // Handle email sending error
+//     if (verificationEmailResponse.error) {
+//       const err = new Error(
+//         "Failed to send verification email, please try again later"
 //       );
-
-//       // send mail - handle err
-//       if (verificationEmailResponse.error) {
-//         console.log(verificationEmailResponse.error);
-//         const err = new Error(
-//           "Failed to send verification code, please try again later"
-//         );
-//         err.statusCode = 500;
-//         return next(err);
-//       }
-
-//       // save to DB
-//       const user = await User.create({
-//         first_name,
-//         last_name,
-//         email,
-//         password: hashedPassword,
-//         otp: generatedCode,
-//         otp_expires_in: Date.now() + 7200000,
-//       });
-//       // send mail success
-//       res.status(201).json({
-//         message:
-//           "Registered successfully. Please check your mail to verify the account",
-//       });
+//       err.statusCode = 500;
+//       return next(err);
 //     }
+//     // Select a random avatar
+//     const randomAvatar =
+//       avatarImages[Math.floor(Math.random() * avatarImages.length)];
 
-//     // res.status(201).send("User registered successfully");
+//     // Save user to DB
+//     await User.create({
+//       avatar: randomAvatar,
+//       first_name,
+//       last_name,
+//       email,
+//       password: hashedPassword,
+//       verify_token: token,
+//       verify_token_expires: Date.now() + 7200000, // 2 hours
+//     });
+
+//     // Respond with success message
+//     res.status(201).json({
+//       message:
+//         "Registered successfully. Please check your email to verify the account",
+//     });
 //   } catch (error) {
 //     return next(error);
 //   }
 // };
-const createUser = async (req, res, next) => {
-  console.log("JWT_SECRET in createUser:", process.env.JWT_SECRET); // Add this line
 
-  const { first_name, last_name, email, password } = req.body;
+const createUser = async (req, res, next) => {
   const avatarImages = [
     "https://cdn-icons-png.flaticon.com/512/4322/4322991.png",
     "https://cdn-icons-png.flaticon.com/512/1326/1326377.png",
@@ -147,6 +122,11 @@ const createUser = async (req, res, next) => {
     "https://cdn-icons-png.flaticon.com/512/1326/1326390.png",
     "https://cdn-icons-png.flaticon.com/512/1760/1760998.png",
   ];
+  // Select a random avatar
+  const randomAvatar =
+    avatarImages[Math.floor(Math.random() * avatarImages.length)];
+
+  const { first_name, last_name, email, password } = req.body;
   try {
     if (!first_name || !last_name || !email || !password) {
       const err = new Error(
@@ -199,9 +179,6 @@ const createUser = async (req, res, next) => {
       err.statusCode = 500;
       return next(err);
     }
-    // Select a random avatar
-    const randomAvatar =
-      avatarImages[Math.floor(Math.random() * avatarImages.length)];
 
     // Save user to DB
     await User.create({
@@ -469,72 +446,104 @@ const resetPasswordFromMobile = async (req, res, next) => {
   }
 };
 
-const loginUser = async (req, res, next) => {
+// const loginUser = async (req, res, next) => {
+//   const { email, password } = req.body;
+//   if (!email || !password) {
+//     const err = new Error("Email & Password are required");
+//     err.statusCode = 400;
+//     return next(err);
+//   }
+//   // check for valid email adress
+//   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+//   if (!emailRegex.test(email)) {
+//     res.status(400);
+//     const err = new Error("Invalid user email address");
+//     return next(err);
+//   }
+//   try {
+//     const user = await User.findOne({ email });
+//     if (!user) {
+//       const err = new Error("User not found");
+//       err.statusCode = 400;
+//       return next(err);
+//     }
+//     if (!user.verified) {
+//       const err = new Error(
+//         "Your account verification is pending. Please verify your email to continue"
+//       );
+//       err.statusCode = 409;
+//       return next(err);
+//     }
+
+//     // check for password match
+//     const passwordMatched = await bcrypt.compare(password, user.password);
+//     console.log(passwordMatched);
+//     if (!passwordMatched) {
+//       const err = new Error("Invalid user email or password");
+//       err.statusCode = 400;
+//       return next(err);
+//     }
+
+//     // generate the token
+//     const token = jwt.sign(
+//       { userId: user._id, email },
+//       process.env.JWT_SECRET,
+//       {
+//         expiresIn: 2592000,
+//       }
+//     );
+//     user.token = token;
+//     await user.save();
+
+//     // generate spotify token
+//     const spotifyAPI = new SpotifyWebApi({
+//       clientId: process.env.SPOTIFY_CLIENT_ID,
+//       clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
+//     });
+
+//     const spotifyCredentials = await spotifyAPI.clientCredentialsGrant();
+//     const spotifyToken = spotifyCredentials.body;
+
+//     // our token exp time
+//     const expiresIn = 2592000;
+//     res.status(200).json({ token, spotifyToken, expiresIn });
+//   } catch (error) {
+//     return next(error);
+//   }
+// };
+const loginUser = async (req, res) => {
   const { email, password } = req.body;
-  if (!email || !password) {
-    const err = new Error("Email & Password are required");
-    err.statusCode = 400;
-    return next(err);
-  }
-  // check for valid email adress
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    res.status(400);
-    const err = new Error("Invalid user email address");
-    return next(err);
-  }
+
   try {
     const user = await User.findOne({ email });
     if (!user) {
-      const err = new Error("User not found");
-      err.statusCode = 400;
-      return next(err);
+      return res.status(404).json({ message: "User not found" });
     }
     if (!user.verified) {
-      const err = new Error(
-        "Your account verification is pending. Please verify your email to continue"
-      );
-      err.statusCode = 409;
-      return next(err);
+      return res
+        .status(401)
+        .json({ message: "Account not verified. Please verify your email." });
     }
 
-    // check for password match
-    const passwordMatched = await bcrypt.compare(password, user.password);
-    console.log(passwordMatched);
-    if (!passwordMatched) {
-      const err = new Error("Invalid user email or password");
-      err.statusCode = 400;
-      return next(err);
+    const passwordMatch = await bcrypt.compare(password, user.password);
+    if (!passwordMatch) {
+      return res.status(401).json({ message: "Invalid credentials" });
     }
-
-    // generate the token
-    const token = jwt.sign(
-      { userId: user._id, email },
-      process.env.JWT_SECRET,
-      {
-        expiresIn: 2592000,
-      }
-    );
-    user.token = token;
-    await user.save();
-
-    // generate spotify token
-    const spotifyAPI = new SpotifyWebApi({
-      clientId: process.env.SPOTIFY_CLIENT_ID,
-      clientSecret: process.env.SPOTIFY_CLIENT_SECRET,
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, {
+      expiresIn: "1h",
     });
-
-    const spotifyCredentials = await spotifyAPI.clientCredentialsGrant();
-    const spotifyToken = spotifyCredentials.body;
-
-    // our token exp time
-    const expiresIn = 2592000;
-    res.status(200).json({ token, spotifyToken, expiresIn });
+    res.json({
+      token,
+      email: user.email,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      avatar: user.avatar,
+    });
   } catch (error) {
-    return next(error);
+    console.error(error);
+    res.status(500).json({ message: "Server error" });
   }
 };
-
 const generateSpotifyRefreshToken = async (req, res, next) => {
   try {
     // generate spotify token
