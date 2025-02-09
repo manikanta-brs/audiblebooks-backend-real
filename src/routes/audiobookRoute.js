@@ -27,7 +27,12 @@ router.get("/search", searchAudiobooks);
 router.get("/category/:category", getAudiobooksByCategory);
 
 // Author-only routes
-router.post("/uploadaudiobook", checkAuthorToken, upload, uploadAudiobook);
+router.post(
+  "/uploadaudiobook",
+  checkAuthorToken, // Check authentication first
+  upload, // **Apply the multer middleware here**
+  uploadAudiobook // Then call your controller
+);
 router.delete("/:id/delete", checkAuthorToken, deleteAudiobook); // Changed route
 router.put("/:id/update", checkAuthorToken, upload, updateAudiobook); // Changed route
 router.get("/:id/get", checkAuthorToken, getAudiobookById); // Changed route

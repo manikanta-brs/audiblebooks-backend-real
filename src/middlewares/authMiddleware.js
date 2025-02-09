@@ -53,8 +53,7 @@ const checkUserToken = expressAsyncHandler(async (req, res, next) => {
 });
 
 const checkAuthorToken = expressAsyncHandler(async (req, res, next) => {
-  console.log("Author attached to request:", req.author);
-
+  console.log("Authentication Middleware - req.author:", req.author);
   let token;
   const authorizationHeader = req.headers.authorization;
   console.log("Authorization Header:", req.headers.authorization);

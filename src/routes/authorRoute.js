@@ -9,6 +9,7 @@ import {
   updatePassword,
   forgotPassword,
   resetPassword,
+  getAuthors,
 } from "../controllers/authorController.js";
 import { checkAuthorToken } from "../middlewares/authMiddleware.js";
 
@@ -19,6 +20,8 @@ router.post("/register", createAuthor);
 router.get("/verifyEmail/:verifyToken", verifyAuthorEmail);
 router.post("/login", loginAuthor);
 router.get("/profile", checkAuthorToken, getAuthorProfile);
+router.get("/getauthors", getAuthors);
+
 router.put("/profile", checkAuthorToken, updateAuthorProfile);
 router.put("/updatepassword", checkAuthorToken, updatePassword);
 router.post("/forgotpassword", forgotPassword);

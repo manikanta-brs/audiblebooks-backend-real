@@ -11,68 +11,136 @@ dotenv.config();
 const db = mongoose.connection.db; // Use the default connection's db instance
 
 // upload book
+// const uploadAudiobook = asyncHandler(async (req, res, next) => {
+//   try {
+//     // Extract token from headers
+//     const authorizationHeader = req.headers.authorization;
+//     if (!authorizationHeader || !authorizationHeader.startsWith("Bearer ")) {
+//       return res.status(401).json({ error: "Token is required" });
+//     }
+
+//     const token = authorizationHeader.split(" ")[1];
+//     let decodedToken;
+
+//     try {
+//       decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+//     } catch (error) {
+//       return res.status(401).json({ error: "Not authorized, invalid token" });
+//     }
+
+//     // Check if author exists
+//     const author = await Author.findById(decodedToken.authorId).select(
+//       "-password"
+//     );
+//     if (!author) {
+//       return res.status(404).json({ error: "Author not found" });
+//     }
+
+//     req.author = author;
+
+//     // Ensure audiobook and image are provided
+//     if (!req.files || !req.files["audiobook"] || !req.files["image"]) {
+//       return res
+//         .status(400)
+//         .json({ error: "Please upload both audiobook and image files" });
+//     }
+
+//     const audiobookFile = req.files["audiobook"][0];
+//     const imageFile = req.files["image"][0];
+
+//     // Get GridFSBucket instance safely
+//     let gridfsBucket;
+//     try {
+//       gridfsBucket = getGridFSBucket();
+//     } catch (error) {
+//       return res.status(500).json({ error: "GridFSBucket is not initialized" });
+//     }
+
+//     // Check if audiobook already exists
+//     // const existingFile = await gridfsBucket
+//     //   .find({ filename: audiobookFile.originalname })
+//     //   .toArray();
+//     // if (existingFile.length > 0) {
+//     //   return res.status(409).json({ error: "Audiobook already exists" });
+//     // }
+
+//     // Upload audiobook and image concurrently
+//     const uploadAudioPromise = new Promise((resolve, reject) => {
+//       const audioUploadStream = gridfsBucket.openUploadStream(
+//         audiobookFile.originalname,
+//         {
+//           contentType: audiobookFile.mimetype,
+//         }
+//       );
+
+//       audioUploadStream.on("finish", () => resolve(audioUploadStream.id));
+//       audioUploadStream.on("error", reject);
+//       audioUploadStream.end(audiobookFile.buffer);
+//     });
+
+//     const uploadImagePromise = new Promise((resolve, reject) => {
+//       const imageUploadStream = gridfsBucket.openUploadStream(
+//         imageFile.originalname,
+//         {
+//           contentType: imageFile.mimetype,
+//         }
+//       );
+
+//       imageUploadStream.on("finish", resolve);
+//       imageUploadStream.on("error", reject);
+//       imageUploadStream.end(imageFile.buffer);
+//     });
+
+//     await Promise.all([uploadAudioPromise, uploadImagePromise]);
+
+//     // Save metadata in the Audiobook collection
+//     const newAudiobook = new Audiobook({
+//       authorId: req.author.id,
+//       authorName: req.author.first_name,
+//       title: audiobookFile.originalname,
+//       coverImage: imageFile.originalname,
+//       uploadedAt: new Date(),
+//       description: "Add description here", // Optional
+//       category: "Add category here", // Required
+//       genre: "Add genre here", // Optional
+//     });
+
+//     await newAudiobook.save();
+
+//     res.status(201).json({
+//       message: "Files uploaded successfully",
+//       authorId: req.author._id,
+//     });
+//   } catch (error) {
+//     console.error(error);
+//     return next(error);
+//   }
+// });
 const uploadAudiobook = asyncHandler(async (req, res, next) => {
   try {
-    // Extract token from headers
-    const authorizationHeader = req.headers.authorization;
-    if (!authorizationHeader || !authorizationHeader.startsWith("Bearer ")) {
-      return res.status(401).json({ error: "Token is required" });
-    }
+    // Extract from request
+    const { title, description, category } = req.body; // Access text fields
 
-    const token = authorizationHeader.split(" ")[1];
-    let decodedToken;
-
-    try {
-      decodedToken = jwt.verify(token, process.env.JWT_SECRET);
-    } catch (error) {
-      return res.status(401).json({ error: "Not authorized, invalid token" });
-    }
-
-    // Check if author exists
-    const author = await Author.findById(decodedToken.authorId).select(
-      "-password"
-    );
-    if (!author) {
-      return res.status(404).json({ error: "Author not found" });
-    }
-
-    req.author = author;
-
-    // Ensure audiobook and image are provided
-    if (!req.files || !req.files["audiobook"] || !req.files["image"]) {
+    // Validate the text inputs
+    if (!title || !description || !category) {
       return res
         .status(400)
-        .json({ error: "Please upload both audiobook and image files" });
+        .json({ error: "Please provide title, description, and category." });
     }
 
+    // Access the files
     const audiobookFile = req.files["audiobook"][0];
     const imageFile = req.files["image"][0];
 
-    // Get GridFSBucket instance safely
-    let gridfsBucket;
-    try {
-      gridfsBucket = getGridFSBucket();
-    } catch (error) {
-      return res.status(500).json({ error: "GridFSBucket is not initialized" });
-    }
-
-    // Check if audiobook already exists
-    const existingFile = await gridfsBucket
-      .find({ filename: audiobookFile.originalname })
-      .toArray();
-    if (existingFile.length > 0) {
-      return res.status(409).json({ error: "Audiobook already exists" });
-    }
+    // Get GridFSBucket instance
+    let gridfsBucket = getGridFSBucket();
 
     // Upload audiobook and image concurrently
     const uploadAudioPromise = new Promise((resolve, reject) => {
       const audioUploadStream = gridfsBucket.openUploadStream(
         audiobookFile.originalname,
-        {
-          contentType: audiobookFile.mimetype,
-        }
+        { contentType: audiobookFile.mimetype }
       );
-
       audioUploadStream.on("finish", () => resolve(audioUploadStream.id));
       audioUploadStream.on("error", reject);
       audioUploadStream.end(audiobookFile.buffer);
@@ -81,11 +149,8 @@ const uploadAudiobook = asyncHandler(async (req, res, next) => {
     const uploadImagePromise = new Promise((resolve, reject) => {
       const imageUploadStream = gridfsBucket.openUploadStream(
         imageFile.originalname,
-        {
-          contentType: imageFile.mimetype,
-        }
+        { contentType: imageFile.mimetype }
       );
-
       imageUploadStream.on("finish", resolve);
       imageUploadStream.on("error", reject);
       imageUploadStream.end(imageFile.buffer);
@@ -97,18 +162,18 @@ const uploadAudiobook = asyncHandler(async (req, res, next) => {
     const newAudiobook = new Audiobook({
       authorId: req.author.id,
       authorName: req.author.first_name,
-      title: audiobookFile.originalname,
+      title: title, // Use the title from req.body
       coverImage: imageFile.originalname,
       uploadedAt: new Date(),
-      description: "Add description here", // Optional
-      category: "Add category here", // Required
+      description: description, // Use the description from req.body
+      category: category, // Use the category from req.body
       genre: "Add genre here", // Optional
     });
 
     await newAudiobook.save();
 
     res.status(201).json({
-      message: "Files uploaded successfully",
+      message: "Files and metadata uploaded successfully",
       authorId: req.author._id,
     });
   } catch (error) {
@@ -117,36 +182,35 @@ const uploadAudiobook = asyncHandler(async (req, res, next) => {
   }
 });
 
-// get all books
 // const getAudiobooks = asyncHandler(async (req, res) => {
 //   try {
 //     // Extract token from headers
-//     let token;
-//     const authorizationHeader = req.headers.authorization;
+//     // let token;
+//     // const authorizationHeader = req.headers.authorization;
 
-//     if (!authorizationHeader || !authorizationHeader.startsWith("Bearer ")) {
-//       return res.status(401).json({ error: "Token is required" });
-//     }
+//     // if (!authorizationHeader || !authorizationHeader.startsWith("Bearer ")) {
+//     //   return res.status(401).json({ error: "Token is required" });
+//     // }
 
-//     token = authorizationHeader.split(" ")[1];
+//     // token = authorizationHeader.split(" ")[1];
 
-//     try {
-//       const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
+//     // try {
+//     //   const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
 
-//       // Check if the author exists
-//       const author = await Author.findById(decodedToken.authorId).select(
-//         "-password"
-//       );
-//       if (!author) {
-//         return res.status(404).json({ error: "Author not found" });
-//       }
+//     //   // Check if the author exists
+//     //   const author = await Author.findById(decodedToken.authorId).select(
+//     //     "-password"
+//     //   );
+//     //   if (!author) {
+//     //     return res.status(404).json({ error: "Author not found" });
+//     //   }
 
-//       req.author = author;
-//     } catch (error) {
-//       return res.status(401).json({ error: "Not authorized, invalid token" });
-//     }
+//     //   req.author = author;
+//     // } catch (error) {
+//     //   return res.status(401).json({ error: "Not authorized, invalid token" });
+//     // }
 
-//     console.log(req.author.first_name); // Logging author name for debugging
+//     // console.log(req.author.first_name); // Logging author name for debugging
 
 //     const audiobooks = await Audiobook.find();
 
@@ -157,13 +221,44 @@ const uploadAudiobook = asyncHandler(async (req, res, next) => {
 //       });
 //     }
 
-//     const formattedBooks = audiobooks.map((book) => ({
-//       id: book._id,
-//       author: book.authorId,
-//       url: `./images/${book.coverImage}`, // Adjusted to use the actual uploaded image
-//       name: book.title,
-//       publisher: book.authorName || "Unknown", // Using authorName stored during upload
-//     }));
+//     const formattedBooks = await Promise.all(
+//       // Use Promise.all to handle asynchronous operations in map
+//       audiobooks.map(async (book) => {
+//         // Make the mapping function async
+//         let base64Image = null;
+//         try {
+//           const bucket = getGridFSBucket();
+//           const coverImageFile = await bucket
+//             .find({ filename: book.coverImage })
+//             .toArray();
+
+//           if (coverImageFile.length > 0) {
+//             const downloadStream = bucket.openDownloadStreamByName(
+//               book.coverImage
+//             );
+//             const chunks = [];
+//             for await (const chunk of downloadStream) {
+//               // Asynchronously iterate over stream chunks
+//               chunks.push(chunk);
+//             }
+//             const buffer = Buffer.concat(chunks);
+//             base64Image = buffer.toString("base64"); // Convert buffer to base64 string
+//           }
+//         } catch (error) {
+//           console.error("Error fetching cover image from GridFS:", error);
+//           // Handle error appropriately, e.g., set base64Image to null or a default image
+//         }
+
+//         return {
+//           id: book._id,
+//           author: book.authorId,
+//           coverImageData: base64Image, // New field to hold base64 image data
+//           url: `/api/audiobooks/cover-image/${book.coverImage}`, // Keep the file serving URL for potential future use or fallback
+//           name: book.title,
+//           publisher: book.authorName || "Unknown",
+//         };
+//       })
+//     );
 
 //     res.status(200).json({
 //       success: true,
@@ -179,38 +274,22 @@ const uploadAudiobook = asyncHandler(async (req, res, next) => {
 //     });
 //   }
 // });
+
 // get all books
 const getAudiobooks = asyncHandler(async (req, res) => {
   try {
-    // Extract token from headers
-    // let token;
-    // const authorizationHeader = req.headers.authorization;
+    // Extract the authorId from the request's query parameters
+    const authorId = req.query.authorId;
 
-    // if (!authorizationHeader || !authorizationHeader.startsWith("Bearer ")) {
-    //   return res.status(401).json({ error: "Token is required" });
-    // }
+    // Construct the base query to find audiobooks
+    let query = {};
 
-    // token = authorizationHeader.split(" ")[1];
+    // If authorId is provided, add it to the query to filter by author
+    if (authorId) {
+      query = { authorId: authorId };
+    }
 
-    // try {
-    //   const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
-
-    //   // Check if the author exists
-    //   const author = await Author.findById(decodedToken.authorId).select(
-    //     "-password"
-    //   );
-    //   if (!author) {
-    //     return res.status(404).json({ error: "Author not found" });
-    //   }
-
-    //   req.author = author;
-    // } catch (error) {
-    //   return res.status(401).json({ error: "Not authorized, invalid token" });
-    // }
-
-    // console.log(req.author.first_name); // Logging author name for debugging
-
-    const audiobooks = await Audiobook.find();
+    const audiobooks = await Audiobook.find(query);
 
     if (!audiobooks.length) {
       return res.status(404).json({

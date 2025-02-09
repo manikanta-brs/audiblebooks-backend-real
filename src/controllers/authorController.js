@@ -1,5 +1,4 @@
-import Author from "../models/authorModel.js";
-
+import Author from "../models/authorModel.js"; // Assuming this is your Author model
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
@@ -7,10 +6,21 @@ import {
   sendEmailVerificationLink,
   sendPasswordResetLink,
 } from "../utils/utils.js";
-// import SpotifyWebApi from "spotify-web-api-node";
-import Language from "../models/languageModel.js";
 
-// create a new user
+// Utility function for JWT verification (can be a separate middleware)
+function verifyToken(req, res, next) {
+  const bearerHeader = req.headers["authorization"];
+  if (typeof bearerHeader !== "undefined") {
+    const bearer = bearerHeader.split(" ");
+    const bearerToken = bearer[1];
+    req.token = bearerToken;
+    next();
+  } else {
+    res.sendStatus(403); // Forbidden
+  }
+}
+
+// create a new author
 const createAuthor = async (req, res, next) => {
   const avatarImages = [
     "https://cdn-icons-png.flaticon.com/512/4322/4322991.png",
@@ -174,20 +184,72 @@ const verifyAuthorEmail = async (req, res, next) => {
   }
 };
 
+// const loginAuthor = async (req, res, next) => {
+//   const { email, password } = req.body;
+//   if (!email || !password) {
+//     const err = new Error("Email & Password are required");
+//     err.statusCode = 400;
+//     return next(err);
+//   }
+//   // check for valid email adress
+//   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+//   if (!emailRegex.test(email)) {
+//     res.status(400);
+//     const err = new Error("Invalid email address");
+//     return next(err);
+//   }
+//   try {
+//     const author = await Author.findOne({ email });
+//     if (!author) {
+//       const err = new Error("Author not found");
+//       err.statusCode = 400;
+//       return next(err);
+//     }
+//     if (!author.verified) {
+//       const err = new Error(
+//         "Your account verification is pending. Please verify your email to continue"
+//       );
+//       err.statusCode = 409;
+//       return next(err);
+//     }
+
+//     // check for password match
+//     const passwordMatched = await bcrypt.compare(password, author.password);
+
+//     if (!passwordMatched) {
+//       const err = new Error("Invalid email or password");
+//       err.statusCode = 400;
+//       return next(err);
+//     }
+
+//     // generate the token
+//     const token = jwt.sign(
+//       {
+//         authorId: author._id, // Include authorId in the payload
+//         email: email, // Use the email variable from the request
+//       },
+//       process.env.JWT_SECRET,
+//       {
+//         expiresIn: 2592000,
+//       }
+//     );
+//     author.token = token;
+//     await author.save();
+
+//     // our token exp time
+//     const expiresIn = 2592000;
+//     res.status(200).json({
+//       token,
+//       avatar: author.avatar, // Include the avatar URL in the response
+//       expiresIn,
+//     });
+//   } catch (error) {
+//     return next(error);
+//   }
+// };
 const loginAuthor = async (req, res, next) => {
   const { email, password } = req.body;
-  if (!email || !password) {
-    const err = new Error("Email & Password are required");
-    err.statusCode = 400;
-    return next(err);
-  }
-  // check for valid email adress
-  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-  if (!emailRegex.test(email)) {
-    res.status(400);
-    const err = new Error("Invalid email address");
-    return next(err);
-  }
+
   try {
     const author = await Author.findOne({ email });
     if (!author) {
@@ -228,75 +290,95 @@ const loginAuthor = async (req, res, next) => {
 
     // our token exp time
     const expiresIn = 2592000;
+
+    // Include all relevant Author data in the response
     res.status(200).json({
       token,
-      avatar: author.avatar, // Include the avatar URL in the response
+      _id: author._id,
+      email: author.email,
+      first_name: author.first_name,
+      last_name: author.last_name,
+      avatar: author.avatar,
+      isAuthor: author.isAuthor, // <----- ADD isAuthor
       expiresIn,
     });
   } catch (error) {
     return next(error);
   }
 };
-// const loginAuthor = async (req, res, next) => {
-//   const { email, password } = req.body;
-//   if (!email || !password) {
-//     const err = new Error("Email & Password are required");
-//     err.statusCode = 400;
-//     return next(err);
-//   }
-//   // check for valid email adress
-//   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-//   if (!emailRegex.test(email)) {
-//     res.status(400);
-//     const err = new Error("Invalid email address");
-//     return next(err);
-//   }
+// get author list
+// const getAuthors = async (req, res, next) => {
 //   try {
-//     const author = await Author.findOne({ email });
-//     if (!author) {
-//       const err = new Error("Author not found");
-//       err.statusCode = 400;
-//       return next(err);
-//     }
-//     if (!author.verified) {
-//       const err = new Error(
-//         "Your account verification is pending. Please verify your email to continue"
-//       );
-//       err.statusCode = 409;
-//       return next(err);
-//     }
+//     // Check the JWT token
+//     jwt.verify(req.token, process.env.JWT_SECRET, async (err, authData) => {
+//       if (err) {
+//         res.sendStatus(403); // Send a 403 Forbidden status if JWT verification fails
+//       } else {
+//         // If JWT is valid, proceed to fetch the authors
+//         const authors = await Author.find({}).select(
+//           "avatar first_name last_name email"
+//         ); // Select the columns you want
 
-//     // check for password match
-//     const passwordMatched = await bcrypt.compare(password, author.password);
-//     console.log(passwordMatched);
-//     if (!passwordMatched) {
-//       const err = new Error("Invalid email or password");
-//       err.statusCode = 400;
-//       return next(err);
-//     }
+//         // Check if any authors were found
+//         if (!authors || authors.length === 0) {
+//           return res
+//             .status(404)
+//             .json({ message: "No authors found", status: 404 });
+//         }
 
-//     // generate the token
-//     // generate the token
-//     const token = jwt.sign(
-//       {
-//         authorId: author._id, // Include authorId in the payload
-//         email: email, // Use the email variable from the request
-//       },
-//       process.env.JWT_SECRET,
-//       {
-//         expiresIn: 2592000,
+//         res.status(200).json(authors); // Send the authors data as a JSON response
 //       }
-//     );
-//     author.token = token;
-//     await author.save();
-
-//     // our token exp time
-//     const expiresIn = 2592000;
-//     res.status(200).json({ token, expiresIn });
+//     });
 //   } catch (error) {
-//     return next(error);
+//     console.error("Error fetching authors:", error);
+//     res.status(500).json({
+//       message: "Error fetching authors",
+//       error: error.message,
+//       status: 500,
+//     }); // Send an error response
 //   }
 // };
+const getAuthors = async (req, res) => {
+  try {
+    const authHeader = req.headers["authorization"]; // Correct header name
+    const token = authHeader && authHeader.split(" ")[1]; // "Bearer TOKEN"
+
+    if (!token) {
+      return res.sendStatus(401); // Unauthorized if no token
+    }
+
+    jwt.verify(token, process.env.JWT_SECRET, async (err, authData) => {
+      if (err) {
+        console.error("JWT verification error:", err); // Log the error
+        return res.sendStatus(403); // Forbidden if JWT verification fails
+      } else {
+        // Token is valid
+        const authorId = req.query.authorId; // You still use authorId here.  Why?
+        console.log("authData:", authData); // Log the decoded token data
+        console.log(authorId);
+
+        const authors = await Author.find({ isAuthor: true }).select(
+          "avatar first_name last_name email"
+        );
+
+        if (!authors) {
+          return res
+            .status(404)
+            .json({ message: "No authors found", status: 404 });
+        }
+
+        res.status(200).json(authors);
+      }
+    });
+  } catch (error) {
+    console.error("Error fetching authors:", error);
+    res.status(500).json({
+      message: "Error fetching authors",
+      error: error.message,
+      status: 500,
+    });
+  }
+};
 
 // get author  profile
 const getAuthorProfile = async (req, res, next) => {
@@ -323,6 +405,41 @@ const getAuthorProfile = async (req, res, next) => {
 };
 
 // update author profile
+// const updateAuthorProfile = async (req, res, next) => {
+//   const { first_name, last_name, email } = req.body;
+//   try {
+//     const author = await Author.findById(req.author._id);
+//     if (!author) {
+//       const err = new Error("author not found");
+//       err.statusCode = 404;
+//       return next(err);
+//     }
+
+//     if (first_name || last_name) {
+//       author.first_name = first_name || author.first_name;
+//       author.last_name = last_name || author.last_name;
+//     }
+
+//     if (email && email !== author.email) {
+//       const authorExists = await Author.findOne({ email });
+
+//       if (authorExists) {
+//         const err = new Error(
+//           `${email} is already in use, please choose a different one`
+//         );
+//         err.statusCode = 409;
+//         return next(err);
+//       }
+//       author.email = email;
+//     }
+//     await author.save();
+//     res.status(200).json({ message: "updated successfully" });
+//   } catch (error) {
+//     return next(error);
+//   }
+// };
+
+// update author profile
 const updateAuthorProfile = async (req, res, next) => {
   const { first_name, last_name, email } = req.body;
   try {
@@ -339,7 +456,16 @@ const updateAuthorProfile = async (req, res, next) => {
     }
 
     if (email && email !== author.email) {
-      const authorExists = await Author.findOne({ email });
+      console.log("Inside email update block:");
+      console.log("req.body.email:", req.body.email);
+      console.log("author.email:", author.email);
+      // Modified email existence check:  Exclude the current author's ID
+      const authorExists = await Author.findOne({
+        email: req.body.email,
+        _id: { $ne: req.author._id }, // Exclude the current author's ID
+      });
+
+      console.log("authorExists:", authorExists);
 
       if (authorExists) {
         const err = new Error(
@@ -356,7 +482,6 @@ const updateAuthorProfile = async (req, res, next) => {
     return next(error);
   }
 };
-
 // update author password
 const updatePassword = async (req, res, next) => {
   const { password } = req.body;
@@ -488,213 +613,8 @@ const resetPassword = async (req, res, next) => {
   }
 };
 
-// const uploadAudiobook = asyncHandler(async (req, res, next) => {
-//   try {
-//     // Extract token from headers
-//     let token;
-//     const authorizationHeader = req.headers.authorization;
-
-//     if (authorizationHeader && authorizationHeader.startsWith("Bearer")) {
-//       token = authorizationHeader.split(" ")[1];
-//       try {
-//         const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
-
-//         // Check if the author exists
-//         const author = await Author.findById(decodedToken.authorId).select(
-//           "-password"
-//         );
-//         if (!author) {
-//           return res.status(404).json({ error: "Author not found" });
-//         }
-
-//         req.author = author;
-//       } catch (error) {
-//         return res.status(401).json({ error: "Not authorized, invalid token" });
-//       }
-//     } else {
-//       return res
-//         .status(401)
-//         .json({ error: "Not authorized, token is required" });
-//     }
-
-//     // Ensure audiobook and image are provided
-//     if (!req.files || !req.files["audiobook"] || !req.files["image"]) {
-//       return res
-//         .status(400)
-//         .json({ error: "Please upload both audiobook and image files" });
-//     }
-
-//     const audiobookFile = req.files["audiobook"][0];
-//     const imageFile = req.files["image"][0];
-
-//     // Check if an audiobook with the same filename already exists in GridFS
-//     const existingFile = await gridfsBucket
-//       .find({ filename: audiobookFile.originalname })
-//       .toArray();
-//     if (existingFile.length > 0) {
-//       return res.status(409).json({ error: "Audiobook already exists" });
-//     }
-
-//     // Upload audiobook and image concurrently using Promise.all
-//     const uploadAudioPromise = new Promise((resolve, reject) => {
-//       const audioUploadStream = gridfsBucket.openUploadStream(
-//         audiobookFile.originalname,
-//         {
-//           contentType: audiobookFile.mimetype,
-//         }
-//       );
-
-//       audioUploadStream.on("finish", function () {
-//         if (!audioUploadStream.id) {
-//           return reject(new Error("Failed to retrieve file ID from GridFS"));
-//         }
-//         resolve(audioUploadStream.id); // ✅ Get the correct _id
-//       });
-
-//       audioUploadStream.on("error", reject);
-//       audioUploadStream.end(audiobookFile.buffer);
-//     });
-
-//     // const uploadAudioPromise = new Promise((resolve, reject) => {
-//     //   const audioUploadStream = gridfsBucket.openUploadStream(
-//     //     audiobookFile.originalname,
-//     //     {
-//     //       contentType: audiobookFile.mimetype,
-//     //     }
-//     //   );
-//     //   audioUploadStream.end(audiobookFile.buffer);
-//     //   audioUploadStream.on("finish", async (file) => {
-//     //     resolve(file._id); // Capture the GridFS file _id as bookId
-//     //   });
-//     //   audioUploadStream.on("error", reject);
-//     // });
-
-//     const uploadImagePromise = new Promise((resolve, reject) => {
-//       const imageUploadStream = gridfsBucket.openUploadStream(
-//         imageFile.originalname,
-//         {
-//           contentType: imageFile.mimetype,
-//         }
-//       );
-//       imageUploadStream.end(imageFile.buffer);
-//       imageUploadStream.on("finish", resolve);
-//       imageUploadStream.on("error", reject);
-//     });
-
-//     // Wait for both uploads to finish
-//     const [bookId] = await Promise.all([
-//       uploadAudioPromise,
-//       uploadImagePromise,
-//     ]);
-
-//     // Save metadata in the Audiobook collection
-//     const newAudiobook = new Audiobook({
-//       bookId, // Assign the GridFS file ID as bookId
-//       authorId: req.author._id,
-//       title: audiobookFile.originalname,
-//       coverImage: imageFile.originalname,
-//       uploadedAt: new Date(),
-//     });
-
-//     await newAudiobook.save();
-
-//     res.status(201).json({
-//       message: "Files uploaded successfully",
-//       bookId,
-//       authorId: req.author._id,
-//     });
-//   } catch (error) {
-//     console.error(error);
-//     return next(error);
-//   }
-// });
-
-// const uploadAudiobook = async (req, res, next) => {
-//   try {
-//     // Extract token from headers
-//     let token;
-//     const authorizationHeader = req.headers.authorization;
-
-//     if (authorizationHeader && authorizationHeader.startsWith("Bearer")) {
-//       token = authorizationHeader.split(" ")[1];
-//       try {
-//         const decodedToken = jwt.verify(token, process.env.JWT_SECRET);
-
-//         // Check if user exists
-//         const author = await Author.findById(decodedToken.authorId).select(
-//           "-password"
-//         );
-//         if (!author) {
-//           return res.status(404).json({ error: "Author not found" });
-//         }
-
-//         req.author = author;
-//       } catch (error) {
-//         return res.status(401).json({ error: "Not authorized, invalid token" });
-//       }
-//     } else {
-//       return res
-//         .status(401)
-//         .json({ error: "Not authorized, token is required" });
-//     }
-
-//     // Ensure both audiobook and image are provided
-//     if (!req.files || !req.files["audiobook"] || !req.files["image"]) {
-//       return res
-//         .status(400)
-//         .json({ error: "Please upload both audiobook and image files" });
-//     }
-
-//     const audiobookFile = req.files["audiobook"][0];
-//     const imageFile = req.files["image"][0];
-
-//     // Check if an audiobook with the same filename already exists in GridFS
-//     const existingFile = await gridfsBucket
-//       .find({ filename: audiobookFile.originalname })
-//       .toArray();
-//     if (existingFile.length > 0) {
-//       return res.status(409).json({ error: "Audiobook already exists" });
-//     }
-
-//     // Upload audiobook and image concurrently using Promise.all
-//     const uploadAudioPromise = new Promise((resolve, reject) => {
-//       const audioUploadStream = gridfsBucket.openUploadStream(
-//         audiobookFile.originalname,
-//         {
-//           contentType: audiobookFile.mimetype,
-//         }
-//       );
-//       audioUploadStream.end(audiobookFile.buffer);
-//       audioUploadStream.on("finish", resolve);
-//       audioUploadStream.on("error", reject);
-//     });
-
-//     const uploadImagePromise = new Promise((resolve, reject) => {
-//       const imageUploadStream = gridfsBucket.openUploadStream(
-//         imageFile.originalname,
-//         {
-//           contentType: imageFile.mimetype,
-//         }
-//       );
-//       imageUploadStream.end(imageFile.buffer);
-//       imageUploadStream.on("finish", resolve);
-//       imageUploadStream.on("error", reject);
-//     });
-
-//     // Wait for both uploads to finish
-//     await Promise.all([uploadAudioPromise, uploadImagePromise]);
-
-//     res.status(200).json({
-//       message: "Files uploaded successfully",
-//       authorId: req.author._id,
-//     });
-//   } catch (error) {
-//     console.error(error);
-//     return next(error);
-//   }
-// }; // this works fine
-
 export {
+  getAuthors,
   createAuthor,
   verifyAuthorEmail,
   loginAuthor,
