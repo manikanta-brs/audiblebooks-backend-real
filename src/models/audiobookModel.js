@@ -24,6 +24,11 @@ const audiobookSchema = mongoose.Schema(
       type: String,
       required: true,
     },
+    audioFile: {
+      // Add this field
+      type: String,
+      required: true, // Or false, depending on your requirements
+    },
     uploadedAt: {
       type: Date,
       default: Date.now,
@@ -36,17 +41,6 @@ const audiobookSchema = mongoose.Schema(
       type: String,
       required: false, // Optional field for genre of the audiobook
     },
-    // ratings: [
-    //   {
-    //     userId: {
-    //       type: mongoose.Schema.Types.ObjectId,
-    //       ref: "User",
-    //       required: true,
-    //     },
-    //     rating: { type: Number, min: 1, max: 5, required: true },
-    //     review: { type: String, required: false },
-    //   },
-    // ],
     ratings: [
       {
         userId: { type: mongoose.Schema.Types.ObjectId, ref: "User" },

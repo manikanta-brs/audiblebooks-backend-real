@@ -11,6 +11,8 @@ import {
   searchAudiobooks,
   uploadAudiobook,
   getAudiobookCoverImage,
+  getAudiobooksByAuthor,
+  getAudioFile,
 } from "../controllers/audiobookController.js";
 import {
   checkAuthorToken,
@@ -36,6 +38,7 @@ router.post(
 router.delete("/:id/delete", checkAuthorToken, deleteAudiobook); // Changed route
 router.put("/:id/update", checkAuthorToken, upload, updateAudiobook); // Changed route
 router.get("/:id/get", checkAuthorToken, getAudiobookById); // Changed route
+router.get("/:id/getbyauthor", checkAuthorToken, getAudiobooksByAuthor); // Changed route
 
 // User rating route
 router.post("/:id/review/user", checkUserToken, addRating);
@@ -54,5 +57,6 @@ router.put("/:id/review/user", checkUserToken, editRating);
 
 // Author Route to edit a rating
 router.put("/:id/review/author", checkAuthorToken, editRating);
+router.get("/audio/:filename", getAudioFile); // The new audio file route
 
 export default router;

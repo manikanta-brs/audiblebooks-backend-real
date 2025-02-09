@@ -20,10 +20,114 @@ const getDevice = (req, res) => {
   res.send(req.useragent.source);
 };
 
-// const createUser = async (req, res, next) => {
-//   console.log("JWT_SECRET in createUser:", process.env.JWT_SECRET); // Add this line
+const createUser = async (req, res, next) => {
+  const avatarImages = [
+    "https://cdn-icons-png.flaticon.com/512/4322/4322991.png",
+    "https://cdn-icons-png.flaticon.com/512/1326/1326377.png",
+    "https://cdn-icons-png.flaticon.com/512/2632/2632839.png",
+    "https://cdn-icons-png.flaticon.com/512/3940/3940403.png",
+    "https://cdn-icons-png.flaticon.com/512/3940/3940417.png",
+    "https://cdn-icons-png.flaticon.com/512/1326/1326405.png",
+    "https://cdn-icons-png.flaticon.com/512/1326/1326390.png",
+    "https://cdn-icons-png.flaticon.com/512/1760/1760998.png",
+  ];
+  // Select a random avatar
+  const randomAvatar =
+    avatarImages[Math.floor(Math.random() * avatarImages.length)];
 
-//   const { first_name, last_name, email, password } = req.body;
+  const { first_name, last_name, email, password } = req.body;
+  console.log("Received registration request:", req.body); // LOGGING
+
+  try {
+    if (!first_name || !last_name || !email || !password) {
+      const err = new Error(
+        "Firstname, Lastname, Email and Password is required"
+      );
+      err.statusCode = 400;
+      console.error("Missing required fields:", err.message); // LOGGING
+      return next(err);
+    }
+
+    // Check for valid email address
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(email)) {
+      const err = new Error("Invalid email address");
+      err.statusCode = 400; // Set status code
+      console.error("Invalid email format:", email); //LOGGING
+      return next(err);
+    }
+
+    // Check for existing user
+    console.log("Checking if user exists with email:", email); // LOGGING
+    const userExists = await User.findOne({ email });
+    if (userExists) {
+      const err = new Error(
+        "User with this email already exists. Please use a different email address"
+      );
+      err.statusCode = 409; //Corrected
+      console.error("User already exists:", email); //LOGGING
+      return next(err);
+    }
+
+    // Hash password
+    console.log("Hashing password..."); // LOGGING
+    const hashedPassword = await bcrypt.hash(password, 10);
+    console.log("Password hashed successfully."); // LOGGING
+
+    // Generate token
+    console.log("Generating JWT token..."); //LOGGING
+    const token = jwt.sign({ email }, process.env.JWT_SECRET, {
+      expiresIn: "2h",
+    });
+    console.log("JWT token generated:", token); // LOGGING
+
+    // Send verification email
+    console.log("Sending verification email..."); // LOGGING
+    const verificationEmailResponse = await sendEmailVerificationLink(
+      email,
+      token,
+      first_name,
+      "users"
+    );
+    console.log("Verification email response:", verificationEmailResponse); // LOGGING
+
+    // Handle email sending error
+    if (verificationEmailResponse.error) {
+      const err = new Error(
+        "Failed to send verification email, please try again later"
+      );
+      err.statusCode = 500;
+      console.error("Failed to send verification email:", err); // LOGGING
+      return next(err);
+    }
+
+    // Save user to DB
+    console.log("Saving user to database..."); // LOGGING
+    await User.create({
+      avatar: randomAvatar,
+      first_name,
+      last_name,
+      email,
+      password: hashedPassword,
+      verify_token: token,
+      verify_token_expires: Date.now() + 7200000, // 2 hours
+    });
+    console.log("User saved to database successfully."); // LOGGING
+
+    // Respond with success message
+    console.log("Registration successful, sending response..."); // LOGGING
+    res.status(201).json({
+      message:
+        "Registered successfully. Please check your email to verify the account",
+    });
+    console.log("Response sent successfully."); // LOGGING
+  } catch (error) {
+    console.error("An error occurred:", error); // LOGGING THE FULL ERROR
+    return next(error);
+  }
+};
+
+// const createUser = async (req, res, next) => {
 //   const avatarImages = [
 //     "https://cdn-icons-png.flaticon.com/512/4322/4322991.png",
 //     "https://cdn-icons-png.flaticon.com/512/1326/1326377.png",
@@ -34,6 +138,11 @@ const getDevice = (req, res) => {
 //     "https://cdn-icons-png.flaticon.com/512/1326/1326390.png",
 //     "https://cdn-icons-png.flaticon.com/512/1760/1760998.png",
 //   ];
+//   // Select a random avatar
+//   const randomAvatar =
+//     avatarImages[Math.floor(Math.random() * avatarImages.length)];
+
+//   const { first_name, last_name, email, password } = req.body;
 //   try {
 //     if (!first_name || !last_name || !email || !password) {
 //       const err = new Error(
@@ -86,9 +195,6 @@ const getDevice = (req, res) => {
 //       err.statusCode = 500;
 //       return next(err);
 //     }
-//     // Select a random avatar
-//     const randomAvatar =
-//       avatarImages[Math.floor(Math.random() * avatarImages.length)];
 
 //     // Save user to DB
 //     await User.create({
@@ -110,96 +216,6 @@ const getDevice = (req, res) => {
 //     return next(error);
 //   }
 // };
-
-const createUser = async (req, res, next) => {
-  const avatarImages = [
-    "https://cdn-icons-png.flaticon.com/512/4322/4322991.png",
-    "https://cdn-icons-png.flaticon.com/512/1326/1326377.png",
-    "https://cdn-icons-png.flaticon.com/512/2632/2632839.png",
-    "https://cdn-icons-png.flaticon.com/512/3940/3940403.png",
-    "https://cdn-icons-png.flaticon.com/512/3940/3940417.png",
-    "https://cdn-icons-png.flaticon.com/512/1326/1326405.png",
-    "https://cdn-icons-png.flaticon.com/512/1326/1326390.png",
-    "https://cdn-icons-png.flaticon.com/512/1760/1760998.png",
-  ];
-  // Select a random avatar
-  const randomAvatar =
-    avatarImages[Math.floor(Math.random() * avatarImages.length)];
-
-  const { first_name, last_name, email, password } = req.body;
-  try {
-    if (!first_name || !last_name || !email || !password) {
-      const err = new Error(
-        "Firstname, Lastname, Email and Password is required"
-      );
-      err.statusCode = 400;
-      return next(err);
-    }
-
-    // Check for valid email address
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!emailRegex.test(email)) {
-      const err = new Error("Invalid email address");
-      res.status(400);
-      return next(err);
-    }
-
-    // Check for existing user
-    const userExists = await User.findOne({ email });
-    if (userExists) {
-      res.status(409);
-      const err = new Error(
-        "User with this email already exists. Please use a different email address"
-      );
-      err.statusCode = 409;
-      return next(err);
-    }
-
-    // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
-
-    // Generate token
-    const token = jwt.sign({ email }, process.env.JWT_SECRET, {
-      expiresIn: "2h",
-    });
-
-    // Send verification email
-    const verificationEmailResponse = await sendEmailVerificationLink(
-      email,
-      token,
-      first_name,
-      "users"
-    );
-
-    // Handle email sending error
-    if (verificationEmailResponse.error) {
-      const err = new Error(
-        "Failed to send verification email, please try again later"
-      );
-      err.statusCode = 500;
-      return next(err);
-    }
-
-    // Save user to DB
-    await User.create({
-      avatar: randomAvatar,
-      first_name,
-      last_name,
-      email,
-      password: hashedPassword,
-      verify_token: token,
-      verify_token_expires: Date.now() + 7200000, // 2 hours
-    });
-
-    // Respond with success message
-    res.status(201).json({
-      message:
-        "Registered successfully. Please check your email to verify the account",
-    });
-  } catch (error) {
-    return next(error);
-  }
-};
 // const verifyEmail = async (req, res, next) => {
 //   try {
 //     // Find user based on verification token
