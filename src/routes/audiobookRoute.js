@@ -8,6 +8,7 @@ import {
   updateAudiobook,
   getAudiobookById,
   getAudiobooksByCategory,
+  getCategories, // Import the getCategories function
   searchAudiobooks,
   uploadAudiobook,
   getAudiobookCoverImage,
@@ -36,7 +37,18 @@ router.post(
   uploadAudiobook // Then call your controller
 );
 router.delete("/:id/delete", checkAuthorToken, deleteAudiobook); // Changed route
-router.put("/:id/update", checkAuthorToken, upload, updateAudiobook); // Changed route
+// Add this debug section
+router.put(
+  "/:id/update",
+  checkAuthorToken, // Check authentication first
+  (req, res, next) => {
+    console.log("REQUEST BODY", req.body);
+    console.log("REQUEST FILES", req.files);
+    next(); // Pass control to the next middleware
+  },
+  upload, // Apply the multer middleware here**
+  updateAudiobook // Then call your controller
+);
 router.get("/:id/get", checkAuthorToken, getAudiobookById); // Changed route
 router.get("/:id/getbyauthor", checkAuthorToken, getAudiobooksByAuthor); // Changed route
 
@@ -58,5 +70,6 @@ router.put("/:id/review/user", checkUserToken, editRating);
 // Author Route to edit a rating
 router.put("/:id/review/author", checkAuthorToken, editRating);
 router.get("/audio/:filename", getAudioFile); // The new audio file route
+router.get("/categories", getCategories);
 
 export default router;

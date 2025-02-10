@@ -802,6 +802,8 @@
 import { getGridFSBucket } from "./gridfs.js"; // ✅ Use the getter function
 import asyncHandler from "express-async-handler";
 import Audiobook from "../models/audiobookModel.js";
+import Category from "../models/Category.js"; // Import your Category model
+
 import Author from "../models/authorModel.js";
 import jwt from "jsonwebtoken";
 import dotenv from "dotenv";
@@ -894,7 +896,18 @@ const uploadAudiobook = asyncHandler(async (req, res, next) => {
     return next(error);
   }
 });
-
+const getCategories = async (req, res) => {
+  try {
+    const categories = await Category.find(); // Fetch all categories from the Category model
+    // console.log("Categories:", categories);
+    res.status(200).json(categories); // Respond with the categories
+  } catch (error) {
+    console.error("Error fetching categories:", error);
+    res
+      .status(500)
+      .json({ message: "Failed to fetch categories", error: error.message });
+  }
+};
 // const getAudiobooks = asyncHandler(async (req, res) => {
 //   try {
 //     // Extract the authorId from the request's query parameters
@@ -1246,6 +1259,135 @@ const deleteAudiobook = asyncHandler(async (req, res, next) => {
 });
 
 //update a book details
+// const updateAudiobook = asyncHandler(async (req, res, next) => {
+//   try {
+//     console.log("Received audiobook ID for update:", req.params.id);
+
+//     // Validate ID format
+//     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
+//       return res.status(400).json({ error: "Invalid audiobook ID format" });
+//     }
+
+//     // Convert ID to ObjectId
+//     const audiobookId = new mongoose.Types.ObjectId(req.params.id);
+
+//     // Find the audiobook by ID
+//     let audiobook = await Audiobook.findById(audiobookId);
+//     if (!audiobook) {
+//       return res.status(404).json({ error: "Audiobook not found" });
+//     }
+
+//     console.log("Found audiobook for update:", audiobook);
+
+//     // Ensure the author is authenticated
+//     if (!req.author) {
+//       return res.status(401).json({ error: "Unauthorized, author not found" });
+//     }
+
+//     // Check if the authorId matches
+//     if (audiobook.authorId.toString() !== req.author._id.toString()) {
+//       return res
+//         .status(403)
+//         .json({ error: "You are not authorized to update this audiobook" });
+//     }
+
+//     // Prepare updated data
+//     const updateData = {};
+//     if (req.body.title) updateData.title = req.body.title;
+//     if (req.body.description) updateData.description = req.body.description;
+//     if (req.body.category) updateData.category = req.body.category;
+//     if (req.body.genre) updateData.genre = req.body.genre;
+
+//     let gridfsBucket = getGridFSBucket();
+
+//     // Handle file uploads if provided
+//     if (req.files) {
+//       if (req.files["image"]) {
+//         const imageFile = req.files["image"][0];
+
+//         // Delete old cover image from GridFS
+//         try {
+//           const oldImageFile = await gridfsBucket
+//             .find({ filename: audiobook.coverImage })
+//             .toArray();
+//           if (oldImageFile.length > 0) {
+//             await gridfsBucket.delete(oldImageFile[0]._id);
+//             console.log("Deleted old cover image:", audiobook.coverImage);
+//           }
+//         } catch (gridFsError) {
+//           console.error(
+//             "Error deleting old cover image from GridFS:",
+//             gridFsError
+//           );
+//         }
+
+//         // Upload new cover image
+//         const imageUploadStream = gridfsBucket.openUploadStream(
+//           imageFile.originalname,
+//           {
+//             contentType: imageFile.mimetype,
+//           }
+//         );
+//         imageUploadStream.end(imageFile.buffer);
+//         await new Promise((resolve, reject) => {
+//           imageUploadStream.on("finish", resolve);
+//           imageUploadStream.on("error", reject);
+//         });
+
+//         updateData.coverImage = imageFile.originalname;
+//       }
+
+//       if (req.files["audiobook"]) {
+//         const audiobookFile = req.files["audiobook"][0];
+
+//         // Delete old audiobook file from GridFS
+//         try {
+//           const oldAudioFile = await gridfsBucket
+//             .find({ filename: audiobook.audioFile })
+//             .toArray();
+//           if (oldAudioFile.length > 0) {
+//             await gridfsBucket.delete(oldAudioFile[0]._id);
+//             console.log("Deleted old audiobook file:", audiobook.audioFile);
+//           }
+//         } catch (gridFsError) {
+//           console.error(
+//             "Error deleting old audiobook file from GridFS:",
+//             gridFsError
+//           );
+//         }
+
+//         // Upload new audiobook file
+//         const audioUploadStream = gridfsBucket.openUploadStream(
+//           audiobookFile.originalname,
+//           {
+//             contentType: audiobookFile.mimetype,
+//           }
+//         );
+//         audioUploadStream.end(audiobookFile.buffer);
+//         await new Promise((resolve, reject) => {
+//           audioUploadStream.on("finish", resolve);
+//           audioUploadStream.on("error", reject);
+//         });
+
+//         updateData.audioFile = audiobookFile.originalname;
+//       }
+//     }
+
+//     // Update audiobook in database
+//     audiobook = await Audiobook.findByIdAndUpdate(audiobookId, updateData, {
+//       new: true,
+//     });
+//     console.log("Updated audiobook:", audiobook);
+
+//     res.status(200).json({
+//       message: "Audiobook updated successfully",
+//       audiobook,
+//     });
+//   } catch (error) {
+//     console.error("Error in updateAudiobook:", error);
+//     return next(error);
+//   }
+// });
 const updateAudiobook = asyncHandler(async (req, res, next) => {
   try {
     console.log("Received audiobook ID for update:", req.params.id);
@@ -1280,10 +1422,12 @@ const updateAudiobook = asyncHandler(async (req, res, next) => {
 
     // Prepare updated data
     const updateData = {};
-    if (req.body.title) updateData.title = req.body.title;
-    if (req.body.description) updateData.description = req.body.description;
-    if (req.body.category) updateData.category = req.body.category;
-    if (req.body.genre) updateData.genre = req.body.genre;
+    if (req.body.title !== undefined) updateData.title = req.body.title;
+    if (req.body.description !== undefined)
+      updateData.description = req.body.description;
+    if (req.body.category !== undefined)
+      updateData.category = req.body.category;
+    if (req.body.genre !== undefined) updateData.genre = req.body.genre;
 
     let gridfsBucket = getGridFSBucket();
 
@@ -1527,29 +1671,121 @@ const searchAudiobooks = asyncHandler(async (req, res) => {
 });
 
 // get audiobooks by category
+// const getAudiobooksByCategory = asyncHandler(async (req, res) => {
+//   try {
+//     const { category } = req.params;
+//     // Correct: Decode
+
+//     const audiobooks = await Audiobook.find({
+//       $or: [{ category: category }, { genre: category }],
+//     });
+//     console.log(audiobooks);
+
+//     if (!audiobooks.length) {
+//       return res.status(404).json({
+//         success: false,
+//         message: `No audiobooks found for category: ${category}`,
+//       });
+//     }
+
+//     const formattedBooks = audiobooks.map((book) => ({
+//       id: book._id,
+//       title: book.title,
+//       description: book.description,
+//       category: book.category,
+//       genre: book.genre,
+//       url: `./images/${book.coverImage}`,
+//     }));
+//     console.log(formattedBooks);
+
+//     res.status(200).json({
+//       success: true,
+//       data: formattedBooks,
+//     });
+//   } catch (error) {
+//     console.error("Error in getAudiobooksByCategory:", error);
+//     res.status(500).json({
+//       success: false,
+//       message: "Internal server error",
+//     });
+//   }
+// });
 const getAudiobooksByCategory = asyncHandler(async (req, res) => {
   try {
     const { category } = req.params;
+    const decodedCategory = decodeURIComponent(category); // Correct: Decode the URL before usage
 
     const audiobooks = await Audiobook.find({
-      $or: [{ category: category }, { genre: category }],
+      $or: [{ category: decodedCategory }, { genre: decodedCategory }],
     });
 
     if (!audiobooks.length) {
       return res.status(404).json({
         success: false,
-        message: `No audiobooks found for category: ${category}`,
+        message: `No audiobooks found for category: ${decodedCategory}`,
       });
     }
+    const formattedBooks = await Promise.all(
+      audiobooks.map(async (book) => {
+        console.log("Audiobook before formatting:", book);
+        let base64Image = null;
+        let base64Audio = null; // Change variable name to base64Audio
 
-    const formattedBooks = audiobooks.map((book) => ({
-      id: book._id,
-      title: book.title,
-      description: book.description,
-      category: book.category,
-      genre: book.genre,
-      url: `./images/${book.coverImage}`,
-    }));
+        try {
+          const bucket = getGridFSBucket();
+
+          // Fetch cover image and convert to base64
+          const coverImageFile = await bucket
+            .find({ filename: book.coverImage })
+            .toArray();
+
+          if (coverImageFile.length > 0) {
+            const downloadStream = bucket.openDownloadStreamByName(
+              book.coverImage
+            );
+            const chunks = [];
+            for await (const chunk of downloadStream) {
+              chunks.push(chunk);
+            }
+            const buffer = Buffer.concat(chunks);
+            base64Image = buffer.toString("base64");
+          }
+
+          // Fetch audio file and convert to base64
+          const audioFile = await bucket
+            .find({ filename: book.audioFile })
+            .toArray();
+
+          if (audioFile.length > 0) {
+            const downloadStream = bucket.openDownloadStreamByName(
+              book.audioFile
+            );
+            const chunks = [];
+            for await (const chunk of downloadStream) {
+              chunks.push(chunk);
+            }
+            const buffer = Buffer.concat(chunks);
+            base64Audio = buffer.toString("base64"); // Assign to base64Audio
+          }
+        } catch (error) {
+          console.error(
+            "Error fetching cover image or audio file from GridFS:",
+            error
+          );
+          // Handle error appropriately
+        }
+
+        return {
+          id: book._id,
+          author: book.authorId,
+          coverImageData: base64Image,
+          audioBase64Data: base64Audio, // Use base64Audio here
+          title: book.title,
+          authorName: book.authorName || "Unknown", // Added authorName to response
+          rating: book.average_rating,
+        };
+      })
+    );
 
     res.status(200).json({
       success: true,
@@ -1563,7 +1799,6 @@ const getAudiobooksByCategory = asyncHandler(async (req, res) => {
     });
   }
 });
-
 // audiobookController.js
 const addRating = async (req, res, next) => {
   const { audiobookId, rating, review, ratingSource, ratingDate } = req.body;
@@ -1718,6 +1953,7 @@ const editRating = async (req, res) => {
 
 export {
   getAudiobooks,
+  getCategories,
   uploadAudiobook,
   deleteAudiobook,
   updateAudiobook,
