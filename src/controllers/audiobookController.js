@@ -894,6 +894,7 @@ const uploadAudiobook = asyncHandler(async (req, res, next) => {
     return next(error);
   }
 });
+
 // const getAudiobooks = asyncHandler(async (req, res) => {
 //   try {
 //     // Extract the authorId from the request's query parameters
@@ -923,8 +924,12 @@ const uploadAudiobook = asyncHandler(async (req, res, next) => {
 //         console.log("Audiobook before formatting:", book); // Add this line
 //         // Make the mapping function async
 //         let base64Image = null;
+//         let audioFileUrl = null;
+
 //         try {
 //           const bucket = getGridFSBucket();
+
+//           // Fetch cover image
 //           const coverImageFile = await bucket
 //             .find({ filename: book.coverImage })
 //             .toArray();
@@ -941,9 +946,21 @@ const uploadAudiobook = asyncHandler(async (req, res, next) => {
 //             const buffer = Buffer.concat(chunks);
 //             base64Image = buffer.toString("base64"); // Convert buffer to base64 string
 //           }
+
+//           // Fetch audio file URL
+//           const audioFile = await bucket
+//             .find({ filename: book.audioFile })
+//             .toArray();
+
+//           if (audioFile.length > 0) {
+//             audioFileUrl = `/api/audiobooks/audio-file/${book.audioFile}`;
+//           }
 //         } catch (error) {
-//           console.error("Error fetching cover image from GridFS:", error);
-//           // Handle error appropriately, e.g., set base64Image to null or a default image
+//           console.error(
+//             "Error fetching cover image or audio file from GridFS:",
+//             error
+//           );
+//           // Handle error appropriately, e.g., set base64Image and audioFileUrl to null or a default value
 //         }
 
 //         return {
@@ -951,7 +968,7 @@ const uploadAudiobook = asyncHandler(async (req, res, next) => {
 //           author: book.authorId,
 //           coverImageData: base64Image, // New field to hold base64 image data
 //           url: `/api/audiobooks/cover-image/${book.coverImage}`, // Keep the file serving URL for potential future use or fallback
-//           audioFile: book.audioFile, //audio file
+//           audioFile: audioFileUrl, //audio file URL
 //           title: book.title,
 //           publisher: book.authorName || "Unknown",
 //         };
@@ -986,7 +1003,7 @@ const getAudiobooks = asyncHandler(async (req, res) => {
     }
 
     const audiobooks = await Audiobook.find(query);
-    console.log("Raw audiobooks data:", audiobooks); // Add this line
+    console.log("Raw audiobooks data:", audiobooks);
 
     if (!audiobooks.length) {
       return res.status(404).json({
@@ -996,17 +1013,15 @@ const getAudiobooks = asyncHandler(async (req, res) => {
     }
 
     const formattedBooks = await Promise.all(
-      // Use Promise.all to handle asynchronous operations in map
       audiobooks.map(async (book) => {
-        console.log("Audiobook before formatting:", book); // Add this line
-        // Make the mapping function async
+        console.log("Audiobook before formatting:", book);
         let base64Image = null;
-        let audioFileUrl = null;
+        let base64Audio = null; // Change variable name to base64Audio
 
         try {
           const bucket = getGridFSBucket();
 
-          // Fetch cover image
+          // Fetch cover image and convert to base64
           const coverImageFile = await bucket
             .find({ filename: book.coverImage })
             .toArray();
@@ -1017,37 +1032,44 @@ const getAudiobooks = asyncHandler(async (req, res) => {
             );
             const chunks = [];
             for await (const chunk of downloadStream) {
-              // Asynchronously iterate over stream chunks
               chunks.push(chunk);
             }
             const buffer = Buffer.concat(chunks);
-            base64Image = buffer.toString("base64"); // Convert buffer to base64 string
+            base64Image = buffer.toString("base64");
           }
 
-          // Fetch audio file URL
+          // Fetch audio file and convert to base64
           const audioFile = await bucket
             .find({ filename: book.audioFile })
             .toArray();
 
           if (audioFile.length > 0) {
-            audioFileUrl = `/api/audiobooks/audio-file/${book.audioFile}`;
+            const downloadStream = bucket.openDownloadStreamByName(
+              book.audioFile
+            );
+            const chunks = [];
+            for await (const chunk of downloadStream) {
+              chunks.push(chunk);
+            }
+            const buffer = Buffer.concat(chunks);
+            base64Audio = buffer.toString("base64"); // Assign to base64Audio
           }
         } catch (error) {
           console.error(
             "Error fetching cover image or audio file from GridFS:",
             error
           );
-          // Handle error appropriately, e.g., set base64Image and audioFileUrl to null or a default value
+          // Handle error appropriately
         }
 
         return {
           id: book._id,
           author: book.authorId,
-          coverImageData: base64Image, // New field to hold base64 image data
-          url: `/api/audiobooks/cover-image/${book.coverImage}`, // Keep the file serving URL for potential future use or fallback
-          audioFile: audioFileUrl, //audio file URL
+          coverImageData: base64Image,
+          audioBase64Data: base64Audio, // Use base64Audio here
           title: book.title,
-          publisher: book.authorName || "Unknown",
+          authorName: book.authorName || "Unknown", // Added authorName to response
+          rating: book.average_rating,
         };
       })
     );
@@ -1067,31 +1089,64 @@ const getAudiobooks = asyncHandler(async (req, res) => {
   }
 });
 
+// const getAudioFile = asyncHandler(async (req, res) => {
+//   try {
+//     const filename = req.params.filename; // Get filename from the URL
+//     const gridfsBucket = getGridFSBucket(); // Get GridFSBucket instance
+//     console.log("filename", filename);
+//     const downloadStream = gridfsBucket.openDownloadStreamByName(filename); //Open download stream
+
+//     // **Add this line to set the Content-Type header**
+//     res.setHeader("Content-Type", "audio/mpeg"); // Set the correct MIME type for audio
+
+//     downloadStream.on("data", (chunk) => {
+//       res.write(chunk); // Stream the data to the response
+//     });
+
+//     downloadStream.on("error", (error) => {
+//       console.error("GridFS stream error:", error);
+//       res.status(404).send("Audio not found"); // Handle file not found
+//     });
+
+//     downloadStream.on("end", () => {
+//       res.end(); // End the response
+//     });
+//   } catch (error) {
+//     console.error("Error in getAudioFile:", error);
+//     res.status(500).send("Server error"); // Handle server errors
+//   }
+// });
 const getAudioFile = asyncHandler(async (req, res) => {
   try {
-    const filename = req.params.filename; // Get filename from the URL
-    const gridfsBucket = getGridFSBucket(); // Get GridFSBucket instance
+    const filename = req.params.filename;
+    const gridfsBucket = getGridFSBucket();
     console.log("filename", filename);
-    const downloadStream = gridfsBucket.openDownloadStreamByName(filename); //Open download stream
+    const downloadStream = gridfsBucket.openDownloadStreamByName(filename);
 
-    // **Add this line to set the Content-Type header**
-    res.setHeader("Content-Type", "audio/mpeg"); // Set the correct MIME type for audio
-
+    const chunks = []; // Array to store chunks of audio data
     downloadStream.on("data", (chunk) => {
-      res.write(chunk); // Stream the data to the response
+      chunks.push(chunk); // Collect chunks
     });
 
     downloadStream.on("error", (error) => {
       console.error("GridFS stream error:", error);
-      res.status(404).send("Audio not found"); // Handle file not found
+      res.status(404).json({ message: "Audio not found" }); // Send JSON error
     });
 
     downloadStream.on("end", () => {
-      res.end(); // End the response
+      const buffer = Buffer.concat(chunks); // Concatenate all chunks into a Buffer
+      const base64Audio = buffer.toString("base64"); // Convert Buffer to base64 string
+
+      // Send base64 encoded audio in a JSON response
+      res.status(200).json({
+        success: true,
+        audioBase64: base64Audio,
+        contentType: "audio/mpeg", // Or determine dynamically as before
+      });
     });
   } catch (error) {
     console.error("Error in getAudioFile:", error);
-    res.status(500).send("Server error"); // Handle server errors
+    res.status(500).json({ message: "Server error" }); // Send JSON error
   }
 });
 // New controller function to serve cover images from GridFS
